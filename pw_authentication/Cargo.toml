@@ -27,3 +27,7 @@ bitvec = "1.0.1"
 digest = "0.10.7"
 ark-mnt6-753 = "0.4.0"
 blake2 = { version = "0.9" }
+num-integer = "0.1.45"
+num-traits = "0.2.17"
+reqwest = "0.11.23"
+ark-ed-on-bn254 = "0.4.0"
