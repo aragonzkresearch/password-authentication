@@ -77,7 +77,7 @@ impl<C: CurveGroup> GroupDescription<C> {
         private_key: C::ScalarField,
         randomness: S,
     ) -> Result<Proof<C>> {
-        let mut rng = ark_std::test_rng();
+        let mut rng = ark_std::rand::thread_rng();
 
         let rand = <C as Group>::ScalarField::rand(&mut rng);
         let commit = C::generator().mul(&rand);
