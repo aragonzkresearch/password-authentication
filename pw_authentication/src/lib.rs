@@ -30,9 +30,9 @@ impl<C: CurveGroup> GroupDescription<C> {
     }
 
     /// A helper routine that generate keypair at once.
-    pub fn generate_keypair(
+    pub fn generate_keypair<S: AsRef<[u8]>>(
         &self,
-        pass_word: impl AsRef<[u8]>,
+        pass_word: S,
         salt: &[u8],
     ) -> Result<(C::ScalarField, C)> {
         let private_key = self.generate_private_key(salt, pass_word.as_ref())?;
@@ -41,9 +41,9 @@ impl<C: CurveGroup> GroupDescription<C> {
     }
 
     /// Allow user to generate own private_key from given password and salt.
-    pub fn generate_private_key(
+    pub fn generate_private_key<S: AsRef<[u8]>>(
         &self,
-        pass_word: impl AsRef<[u8]>,
+        pass_word: S,
         salt: &[u8],
     ) -> Result<C::ScalarField> {
         // Compute HASH
@@ -71,11 +71,11 @@ impl<C: CurveGroup> GroupDescription<C> {
     }
 
     /// Generate proof from given random value.
-    pub fn proof(
+    pub fn proof<S: AsRef<str>>(
         &self,
         publik_key: C,
         private_key: C::ScalarField,
-        randomness: impl AsRef<str>,
+        randomness: S,
     ) -> Result<Proof<C>> {
         let mut rng = ark_std::test_rng();
 
