@@ -1,18 +1,17 @@
 use anyhow::Result;
 use ark_ec::{CurveGroup, Group};
 use ark_serialize::CanonicalSerialize;
-use ark_std::{rand::Rng, UniformRand};
+use ark_std::UniformRand;
 use hex::encode;
 use num_bigint::{BigUint, ParseBigIntError};
 use num_traits::Num;
 use sha2::{Digest, Sha256};
 
-const SALT_SIZE: usize = 16;
-
 #[derive(Default, Debug)]
 pub struct Proof<C: Group> {
     pub g: C, // maybe it's extra field. I think we can use enum and construct it on the fly.
-    pub drand: String,
+    /// Random value from which calculates commit and z.
+    pub rand: String,
     pub commit: C,
     pub z: C::ScalarField,
 }
@@ -23,18 +22,30 @@ pub struct GroupDescription<C: CurveGroup> {
 }
 
 impl<C: CurveGroup> GroupDescription<C> {
+    /// Constructor of the instance.
     pub fn new() -> GroupDescription<C> {
         GroupDescription {
             generator: C::generator(),
         }
     }
 
-    pub fn key_setup(self, pass_word: impl AsRef<[u8]>) -> Result<(C::ScalarField, C)> {
-        // Generate SALT
-        let mut rng = rand::thread_rng();
-        let mut salt = [0u8; SALT_SIZE];
-        rng.fill(&mut salt);
+    /// A helper routine that generate keypair at once.
+    pub fn generate_keypair(
+        &self,
+        pass_word: impl AsRef<[u8]>,
+        salt: &[u8],
+    ) -> Result<(C::ScalarField, C)> {
+        let private_key = self.generate_private_key(salt, pass_word.as_ref())?;
+        let public_key = self.generate_public_key(&private_key);
+        Ok((private_key, public_key))
+    }
 
+    /// Allow user to generate own private_key from given password and salt.
+    pub fn generate_private_key(
+        &self,
+        pass_word: impl AsRef<[u8]>,
+        salt: &[u8],
+    ) -> Result<C::ScalarField> {
         // Compute HASH
         let mut hasher = Sha256::new();
         let mut uncompressed_bytes = Vec::new();
@@ -51,12 +62,15 @@ impl<C: CurveGroup> GroupDescription<C> {
         let hash_str = encode(hash_result);
         let hash_int = hex_to_bignum(&hash_str)?;
         let private_key: <C as Group>::ScalarField = hash_int.into();
-
-        // COMPUTE PUBLIC KEY
-        let public_key = self.generator.mul(private_key);
-        Ok((private_key, public_key))
+        Ok(private_key)
     }
 
+    /// Generate public key from a private.
+    pub fn generate_public_key(&self, private_key: &C::ScalarField) -> C {
+        self.generator.mul(private_key)
+    }
+
+    /// Generate proof from given random value.
     pub fn proof(
         &self,
         publik_key: C,
@@ -74,15 +88,16 @@ impl<C: CurveGroup> GroupDescription<C> {
 
         Ok(Proof {
             g: self.generator,
-            drand: randomness.to_string(),
+            rand: randomness.to_string(),
             commit,
             z,
         })
     }
 
-    pub fn verify_proof(proof: &Proof<C>, public_key: &C, randomness: impl AsRef<str>) -> bool {
-        let challenge = hash::<C>(&proof.commit, public_key, randomness.as_ref())
-            .expect("Expected correct hashing");
+    /// Verifies given proof using public key.
+    pub fn verify_proof(proof: &Proof<C>, public_key: &C) -> bool {
+        let challenge =
+            hash::<C>(&proof.commit, public_key, &proof.rand).expect("Expected correct hashing");
         let commit = proof.commit;
         let lef_hand = commit + (public_key.mul(&challenge));
         let right_hand = proof.g.mul(&proof.z);
@@ -90,7 +105,7 @@ impl<C: CurveGroup> GroupDescription<C> {
     }
 }
 
-pub fn hash<C: CurveGroup>(x: &C, y: &C, r: &str) -> Result<<C as Group>::ScalarField> {
+fn hash<C: CurveGroup>(x: &C, y: &C, r: &str) -> Result<<C as Group>::ScalarField> {
     let mut hasher = Sha256::new();
     let mut uncompressed_bytes = Vec::new();
     x.serialize_uncompressed(&mut uncompressed_bytes)?;
@@ -110,6 +125,6 @@ pub fn hash<C: CurveGroup>(x: &C, y: &C, r: &str) -> Result<<C as Group>::Scalar
     Ok(hash_ff)
 }
 
-pub fn hex_to_bignum(hex_str: &str) -> Result<BigUint, ParseBigIntError> {
+fn hex_to_bignum(hex_str: &str) -> Result<BigUint, ParseBigIntError> {
     BigUint::from_str_radix(hex_str, 16)
 }
