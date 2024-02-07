@@ -1,14 +1,13 @@
 use anyhow::Result;
 use ark_ec::{CurveGroup, Group};
-use ark_serialize::CanonicalSerialize;
+use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
 use ark_std::UniformRand;
 use hex::encode;
 use num_bigint::{BigUint, ParseBigIntError};
 use num_traits::Num;
-//use sha2::{Digest, Sha256 as Hash_func};
-use sha3::{Digest, Sha3_256 as Hash_func};
+use sha3::{Digest, Sha3_256 as HashFunc};
 
-#[derive(Default, Debug)]
+#[derive(Default, Debug, CanonicalDeserialize, CanonicalSerialize)]
 pub struct Proof<C: Group> {
     pub g: C, // maybe it's extra field. I think we can use enum and construct it on the fly.
     /// Random value from which calculates commit and z.
@@ -48,7 +47,7 @@ impl<C: CurveGroup> GroupDescription<C> {
         salt: &[u8],
     ) -> Result<C::ScalarField> {
         // Compute HASH
-        let mut hasher = Hash_func::new();
+        let mut hasher = HashFunc::new();
         let mut uncompressed_bytes = Vec::new();
         pass_word
             .as_ref()
@@ -78,7 +77,7 @@ impl<C: CurveGroup> GroupDescription<C> {
         private_key: C::ScalarField,
         randomness: S,
     ) -> Result<Proof<C>> {
-        let mut rng = ark_std::test_rng();
+        let mut rng = ark_std::rand::thread_rng();
 
         let rand = <C as Group>::ScalarField::rand(&mut rng);
         let commit = C::generator().mul(&rand);
@@ -107,7 +106,7 @@ impl<C: CurveGroup> GroupDescription<C> {
 }
 
 fn hash<C: CurveGroup>(x: &C, y: &C, r: &str) -> Result<<C as Group>::ScalarField> {
-    let mut hasher = Hash_func::new();
+    let mut hasher = HashFunc::new();
     let mut uncompressed_bytes = Vec::new();
     x.serialize_uncompressed(&mut uncompressed_bytes)?;
     hasher.update(uncompressed_bytes);

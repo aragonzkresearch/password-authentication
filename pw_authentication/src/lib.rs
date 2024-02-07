@@ -1,13 +1,13 @@
 use anyhow::Result;
 use ark_ec::{CurveGroup, Group};
-use ark_serialize::CanonicalSerialize;
+use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
 use ark_std::UniformRand;
 use hex::encode;
 use num_bigint::{BigUint, ParseBigIntError};
 use num_traits::Num;
 use sha2::{Digest, Sha256};
 
-#[derive(Default, Debug)]
+#[derive(Default, Debug, CanonicalDeserialize, CanonicalSerialize)]
 pub struct Proof<C: Group> {
     pub g: C, // maybe it's extra field. I think we can use enum and construct it on the fly.
     /// Random value from which calculates commit and z.
@@ -77,7 +77,7 @@ impl<C: CurveGroup> GroupDescription<C> {
         private_key: C::ScalarField,
         randomness: S,
     ) -> Result<Proof<C>> {
-        let mut rng = ark_std::test_rng();
+        let mut rng = ark_std::rand::thread_rng();
 
         let rand = <C as Group>::ScalarField::rand(&mut rng);
         let commit = C::generator().mul(&rand);
